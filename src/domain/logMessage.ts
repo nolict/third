@@ -38,7 +38,15 @@ function summary(entry: LogEntry): { country: string; info: string; code: string
   return { country, info, code: extractOtp(entry.sms) };
 }
 
-const rowSeparator = "➖➖➖➖➖➖➖➖➖➖➖➖";
+function spacedCode(code: string): string {
+  if (code.length < 4) {
+    return code;
+  }
+  if (code.length === 4) {
+    return `${code.slice(0, 2)}-${code.slice(2)}`;
+  }
+  return code.match(/.{1,3}/g)?.join("-") ?? code;
+}
 
 function keyboard(code: string | null, numbers: NumberButton[]): InlineKeyboardButton[][] {
   const rows: InlineKeyboardButton[][] = [];
@@ -46,7 +54,7 @@ function keyboard(code: string | null, numbers: NumberButton[]): InlineKeyboardB
     return rows;
   }
   if (code !== null) {
-    rows.push([{ text: code, copy_text: { text: code }, style: "danger" }]);
+    rows.push([{ text: spacedCode(code), copy_text: { text: code }, style: "danger" }]);
   }
   if (numbers.length > 0) {
     rows.push(numbers.map((number) => ({ text: number.label, url: number.url, style: "primary" })));
@@ -57,11 +65,10 @@ function keyboard(code: string | null, numbers: NumberButton[]): InlineKeyboardB
 export function formatLogMessage(entry: LogEntry, numbers: NumberButton[]): LogMessage {
   const { country, info, code } = summary(entry);
   const head = `${country} | ${info}`;
-  const text = `${head}${rowSeparator}`;
 
   return {
-    markdownV2: `*${escapeMarkdownV2(text)}*`,
-    legacyMarkdown: `*${escapeLegacyMarkdown(text)}*`,
+    markdownV2: `*${escapeMarkdownV2(head)}*\n`,
+    legacyMarkdown: `*${escapeLegacyMarkdown(head)}*\n`,
     replyMarkup: { inline_keyboard: keyboard(code, numbers) },
   };
 }

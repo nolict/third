@@ -10,8 +10,6 @@ const entry: LogEntry = {
   sms: "Your WhatsApp code is 947-2999. Do not share it with anyone.",
 };
 
-const separator = "➖➖➖➖➖➖➖➖➖➖➖➖";
-
 const numbers: NumberButton[] = [
   { label: "Leads A", url: "https://t.me/leads_a" },
   { label: "Leads B", url: "https://t.me/leads_b" },
@@ -20,12 +18,49 @@ const numbers: NumberButton[] = [
 describe("formatLogMessage", () => {
   test("renders only the bold info line, without the code in the text", () => {
     const { markdownV2 } = formatLogMessage(entry, numbers);
-    expect(markdownV2).toBe(`*ID \\| WA 6281•••••2345 \\#EN${separator}*`);
+    expect(markdownV2).toBe("*ID \\| WA 6281•••••2345 \\#EN*\n");
   });
 
   test("bolds the info line in the legacy markdown fallback too", () => {
     const { legacyMarkdown } = formatLogMessage(entry, numbers);
-    expect(legacyMarkdown).toBe(`*ID | WA 6281•••••2345 #EN${separator}*`);
+    expect(legacyMarkdown).toBe("*ID | WA 6281•••••2345 #EN*\n");
+  });
+
+  test("groups the button text with dashes but copies the plain digits", () => {
+    const { replyMarkup } = formatLogMessage(entry, numbers);
+    const button = replyMarkup.inline_keyboard[0]?.[0];
+    expect(button?.text).toBe("947-299-9");
+    expect(button?.copy_text).toEqual({ text: "9472999" });
+  });
+
+  test("splits a four digit code in half", () => {
+    const { replyMarkup } = formatLogMessage({ ...entry, sms: "Kode OTP kamu: 9876" }, numbers);
+    expect(replyMarkup.inline_keyboard[0]?.[0]).toEqual({
+      text: "98-76",
+      copy_text: { text: "9876" },
+      style: "danger",
+    });
+  });
+
+  test("leaves codes shorter than four digits undashed", () => {
+    const { replyMarkup } = formatLogMessage({ ...entry, sms: "PIN 482" }, numbers);
+    expect(replyMarkup.inline_keyboard[0]?.[0]).toEqual({
+      text: "482",
+      copy_text: { text: "482" },
+      style: "danger",
+    });
+  });
+
+  test("groups a six digit code as three and three", () => {
+    const { replyMarkup } = formatLogMessage(
+      { ...entry, sms: "Your Facebook code is 482 913." },
+      numbers,
+    );
+    expect(replyMarkup.inline_keyboard[0]?.[0]).toEqual({
+      text: "482-913",
+      copy_text: { text: "482913" },
+      style: "danger",
+    });
   });
 
   test("never leaks the code into the visible text", () => {
@@ -40,12 +75,19 @@ describe("formatLogMessage", () => {
     expect(markdownV2).not.toContain("6281255512345");
     expect(markdownV2).not.toContain(">");
     expect(markdownV2).not.toContain("```");
+    expect(markdownV2).not.toContain("➖");
+  });
+
+  test("separates the text from the buttons with a blank line, not a decoration", () => {
+    const { markdownV2, legacyMarkdown } = formatLogMessage(entry, numbers);
+    expect(markdownV2.endsWith("\n")).toBe(true);
+    expect(legacyMarkdown.endsWith("\n")).toBe(true);
   });
 
   test("renders the red otp button full width above two channel buttons side by side", () => {
     const { replyMarkup } = formatLogMessage(entry, numbers);
     expect(replyMarkup.inline_keyboard).toEqual([
-      [{ text: "9472999", copy_text: { text: "9472999" }, style: "danger" }],
+      [{ text: "947-299-9", copy_text: { text: "9472999" }, style: "danger" }],
       [
         { text: "Leads A", url: "https://t.me/leads_a", style: "primary" },
         { text: "Leads B", url: "https://t.me/leads_b", style: "primary" },
@@ -71,7 +113,7 @@ describe("formatLogMessage", () => {
       { ...entry, sms: "Your account email has been changed." },
       numbers,
     );
-    expect(markdownV2).toBe(`*ID \\| WA 6281•••••2345 \\#EN${separator}*`);
+    expect(markdownV2).toBe("*ID \\| WA 6281•••••2345 \\#EN*\n");
     expect(replyMarkup.inline_keyboard).toEqual([
       [
         { text: "Leads A", url: "https://t.me/leads_a", style: "primary" },
@@ -82,9 +124,9 @@ describe("formatLogMessage", () => {
 
   test("keeps the otp button but drops channels when no numbers channel is configured", () => {
     const { markdownV2, replyMarkup } = formatLogMessage(entry, []);
-    expect(markdownV2).toBe(`*ID \\| WA 6281•••••2345 \\#EN${separator}*`);
+    expect(markdownV2).toBe("*ID \\| WA 6281•••••2345 \\#EN*\n");
     expect(replyMarkup.inline_keyboard).toEqual([
-      [{ text: "9472999", copy_text: { text: "9472999" }, style: "danger" }],
+      [{ text: "947-299-9", copy_text: { text: "9472999" }, style: "danger" }],
     ]);
   });
 });

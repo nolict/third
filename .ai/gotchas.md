@@ -59,6 +59,13 @@ Passing `{ style }` as the second argument to `.text()` is a type error.
 handler checks `isMenuButton(text)` before consuming input for "add key" or "add
 channel"; otherwise a menu tap would be stored as a key label or a channel link.
 
+## The OTP button text is dashed but its `copy_text` is not
+
+The red OTP button shows the code grouped with dashes (`247-299-9`, `482-913`, `98-76`) so
+the digits are easy to read. `copy_text` must keep the plain code, otherwise every paste
+carries the dashes and the verification fails. `spacedCode` only changes the display text;
+`extractOtp` keeps returning bare digits. `tests/logMessage.test.ts` asserts both fields.
+
 ## Country codes must not be prefix-matched
 
 `countryFromNumber` matches calling codes against the raw digits, so a short prefix such

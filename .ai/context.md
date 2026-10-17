@@ -62,12 +62,11 @@ they exist solely to become buttons on the OTP message. Keep the two roles separ
 
 ## OTP Message Format
 
-A single bold info line followed by a full-width ➖ separator row, so the reply keyboard
-never crowds the text. No blockquote, no code fence, no decorative emoji, and **the code
+A single bold info line. No blockquote, no code fence, no decorative emoji, and **the code
 never appears in the visible text** — it lives only on the copy button.
 
 ```
-BO | WA 5917•••4567 #EN➖➖➖➖➖➖➖➖➖➖➖➖      (bold)
+BO | WA 5917•••4567 #EN      (bold)
 ```
 
 The leading field is the ISO 3166 alpha-2 code of the country. `labels.ts` maps every
@@ -77,9 +76,11 @@ with `591…` is `BO`, never a prefix match on `5`.
 
 Inline buttons:
 
-- Row 1 — the OTP itself, full width, `style: "danger"` (red), a `copy_text` button whose
-  text **is** the code. Omitted entirely when no code is extracted; there is no `-`
-  placeholder, because an empty button would only invite misclicks.
+- Row 1 — the OTP itself, full width, `style: "danger"` (red). The button **text** is the
+  code grouped with dashes for readability (`947-299-9`, `482-913`, `98-76`), while
+  `copy_text` stays the plain digits so a paste never carries the dashes. Omitted entirely
+  when no code is extracted; there is no `-` placeholder, because an empty button would
+  only invite misclicks.
 - Row 2 — up to two buttons side by side (position 0 left, 1 right), labelled from
   `number_channels.label`, styled `primary` (blue), each a pure `url` button whose URL is
   the link stored in `number_channels.link_url`.
