@@ -15,6 +15,7 @@ export interface ChannelRecord {
 export interface NumberChannelRecord extends ChannelRecord {
   label: string;
   position: number;
+  linkUrl: string;
 }
 
 interface ChannelRow {
@@ -25,6 +26,7 @@ interface ChannelRow {
   is_active: boolean;
   label: string;
   position: string;
+  link_url: string;
 }
 
 export const maxNumberChannels = 2;
@@ -45,11 +47,11 @@ function toChannel(row: ChannelRow): ChannelRecord {
 }
 
 function toNumberChannel(row: ChannelRow): NumberChannelRecord {
-  return { ...toChannel(row), label: row.label, position: Number(row.position) };
+  return { ...toChannel(row), label: row.label, position: Number(row.position), linkUrl: row.link_url };
 }
 
 const logColumns = `id, chat_id, thread_id, title, is_active`;
-const numberColumns = `${logColumns}, label, position`;
+const numberColumns = `${logColumns}, label, position, link_url`;
 
 function columnsFor(kind: ChannelKind): string {
   return kind === "number" ? numberColumns : logColumns;
@@ -124,6 +126,7 @@ export async function addNumberChannel(
   threadId: number | null,
   title: string,
   label: string,
+  linkUrl: string,
 ): Promise<NumberChannelRecord> {
   return transaction(async (client: PoolClient) => {
     const taken = await client.query<{ id: string }>(`SELECT id FROM number_channels FOR UPDATE`);
@@ -136,10 +139,10 @@ export async function addNumberChannel(
     );
     assertTargetIsNew(existing.rows);
     const { rows } = await client.query<ChannelRow>(
-      `INSERT INTO number_channels (chat_id, thread_id, title, label, position)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO number_channels (chat_id, thread_id, title, label, position, link_url)
+       VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING ${numberColumns}`,
-      [chatId, threadId, title, label, taken.rows.length],
+      [chatId, threadId, title, label, taken.rows.length, linkUrl],
     );
     const row = rows[0];
     if (!row) {

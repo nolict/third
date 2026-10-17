@@ -1,6 +1,7 @@
 export interface ChannelLink {
   chatId: string;
   threadId: number | null;
+  url: string;
 }
 
 export type ChannelLinkResult =
@@ -8,6 +9,7 @@ export type ChannelLinkResult =
   | { ok: false; reason: string };
 
 const topicLinkPattern = /^https?:\/\/t\.me\/c\/(\d+)\/(\d+)\/?$/i;
+const usernameLinkPattern = /^https?:\/\/t\.me\/([A-Za-z][A-Za-z0-9_]{3,})\/?$/i;
 const usernamePattern = /^@[A-Za-z][A-Za-z0-9_]{3,}$/;
 const numericPattern = /^-?\d+$/;
 
@@ -19,7 +21,7 @@ export function parseChannelLink(input: string): ChannelLinkResult {
     const chatId = `-100${topic[1]}`;
     const threadId = Number(topic[2]);
     if (threadId > 0) {
-      return { ok: true, link: { chatId, threadId } };
+      return { ok: true, link: { chatId, threadId, url: targetUrl(chatId, threadId) } };
     }
   }
 
@@ -27,12 +29,18 @@ export function parseChannelLink(input: string): ChannelLinkResult {
     return { ok: false, reason: "Link topik harus berformat https://t.me/c/<id>/<topic_id>." };
   }
 
+  const usernameLink = usernameLinkPattern.exec(value);
+  if (usernameLink) {
+    const username = `@${usernameLink[1]}`;
+    return { ok: true, link: { chatId: username, threadId: null, url: targetUrl(username, null) } };
+  }
+
   if (usernamePattern.test(value)) {
-    return { ok: true, link: { chatId: value, threadId: null } };
+    return { ok: true, link: { chatId: value, threadId: null, url: targetUrl(value, null) } };
   }
 
   if (numericPattern.test(value)) {
-    return { ok: true, link: { chatId: value, threadId: null } };
+    return { ok: true, link: { chatId: value, threadId: null, url: targetUrl(value, null) } };
   }
 
   return { ok: false, reason: "Format tidak dikenali. Kirim @username, -100…, atau link topik." };

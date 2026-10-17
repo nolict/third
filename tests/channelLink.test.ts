@@ -6,25 +6,32 @@ describe("parseChannelLink", () => {
   test("extracts the topic id from a topic link", () => {
     expect(parseChannelLink("https://t.me/c/4435318978/183")).toEqual({
       ok: true,
-      link: { chatId: "-1004435318978", threadId: 183 },
+      link: { chatId: "-1004435318978", threadId: 183, url: "https://t.me/c/4435318978/183" },
     });
   });
 
   test("tolerates surrounding whitespace and trailing slash", () => {
     expect(parseChannelLink("  https://t.me/c/4435318978/183/  ")).toEqual({
       ok: true,
-      link: { chatId: "-1004435318978", threadId: 183 },
+      link: { chatId: "-1004435318978", threadId: 183, url: "https://t.me/c/4435318978/183" },
     });
   });
 
   test("accepts username and numeric ids without topic", () => {
     expect(parseChannelLink("@solarian_logs")).toEqual({
       ok: true,
-      link: { chatId: "@solarian_logs", threadId: null },
+      link: { chatId: "@solarian_logs", threadId: null, url: "https://t.me/solarian_logs" },
     });
     expect(parseChannelLink("-1001234567890")).toEqual({
       ok: true,
-      link: { chatId: "-1001234567890", threadId: null },
+      link: { chatId: "-1001234567890", threadId: null, url: "https://t.me/c/1234567890" },
+    });
+  });
+
+  test("accepts a public username link and stores it as typed", () => {
+    expect(parseChannelLink("https://t.me/solarian_logs")).toEqual({
+      ok: true,
+      link: { chatId: "@solarian_logs", threadId: null, url: "https://t.me/solarian_logs" },
     });
   });
 

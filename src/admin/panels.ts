@@ -54,7 +54,7 @@ const maxKeys = 100;
 
 interface AdminSession {
   screen: ChannelKind | "keys" | "keyLabel" | "label";
-  pendingNumber?: { chatId: string; threadId: number | null; title: string };
+  pendingNumber?: { chatId: string; threadId: number | null; title: string; url: string };
   pendingToken?: string;
 }
 
@@ -452,7 +452,7 @@ export class AdminPanel {
       await answerCallback(ctx, "Belum ada channel, tombol tidak tampil");
       return;
     }
-    const lines = numbers.map((number, index) => `${index + 1}. ${number.label}`);
+    const lines = numbers.map((number, index) => `${index + 1}. ${number.label} → ${number.url}`);
     await answerCallback(ctx, `Tombol OTP: ${lines.join(" / ")}`);
   }
 
@@ -564,7 +564,7 @@ export class AdminPanel {
       return;
     }
     try {
-      await addNumberChannel(pending.chatId, pending.threadId, pending.title, label);
+      await addNumberChannel(pending.chatId, pending.threadId, pending.title, label, pending.url);
     } catch (error) {
       await ctx.reply(errorMessage(error));
       return;
@@ -576,7 +576,7 @@ export class AdminPanel {
   private async resolveTarget(
     ctx: Context,
     text: string,
-  ): Promise<{ chatId: string; threadId: number | null; title: string } | undefined> {
+  ): Promise<{ chatId: string; threadId: number | null; title: string; url: string } | undefined> {
     const parsed = parseChannelLink(text);
     if (!parsed.ok) {
       await ctx.reply(parsed.reason);
@@ -599,6 +599,7 @@ export class AdminPanel {
       chatId: chat.id.toString(),
       threadId: parsed.link.threadId,
       title: channelTitle(chat),
+      url: parsed.link.url,
     };
   }
 }

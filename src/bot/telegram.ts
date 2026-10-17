@@ -52,7 +52,7 @@ export function createDelivery(bot: Bot): LogDelivery {
     async numberButtons() {
       return (await listNumberChannels()).map((channel) => ({
         label: channel.label,
-        url: targetUrl(channel.chatId, channel.threadId),
+        url: channel.linkUrl || targetUrl(channel.chatId, channel.threadId),
       }));
     },
     send,

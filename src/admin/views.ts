@@ -1,4 +1,5 @@
 import { maxNumberChannels, type ChannelRecord } from "../db/channels.ts";
+import { targetUrl } from "../domain/channelLink.ts";
 import { channelDisplayName } from "./keyboards.ts";
 import { escapeHtml } from "../lib/format.ts";
 
@@ -20,6 +21,11 @@ export function homeView(adminCount: number, keyCount: number, logCount: number,
   ].join("\n");
 }
 
+function linkOf(channel: ChannelRecord): string {
+  const stored = "linkUrl" in channel && typeof channel.linkUrl === "string" ? channel.linkUrl : "";
+  return stored.length > 0 ? stored : targetUrl(channel.chatId, channel.threadId);
+}
+
 function channelLine(kind: "log" | "number", channel: ChannelRecord, index: number): string {
   const topic = channel.threadId === null ? "channel utama" : `topic ${channel.threadId}`;
   const side = index === 0 ? "kiri" : "kanan";
@@ -27,6 +33,7 @@ function channelLine(kind: "log" | "number", channel: ChannelRecord, index: numb
     return [
       `<b>${index + 1}. ${escapeHtml(channelDisplayName(channel))}</b> · tombol ${side}`,
       `${escapeHtml(channel.chatId)} · ${topic}`,
+      escapeHtml(linkOf(channel)),
     ].join("\n");
   }
   const state = channel.isActive ? "ON" : "OFF";
@@ -74,6 +81,7 @@ export function channelView(kind: "log" | "number", channel: ChannelRecord, inde
       "",
       `Chat: ${escapeHtml(channel.chatId)}`,
       `Tujuan: ${topic}`,
+      `Link tombol: ${escapeHtml(linkOf(channel))}`,
       `Tombol: ${index === 0 ? "kiri" : "kanan"}`,
       "",
       "Hanya dipakai sebagai tombol di pesan OTP. OTP tidak dikirim ke sini.",
