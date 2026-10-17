@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { countryFromNumber, maskNumber, serviceLabel } from "../src/domain/labels.ts";
+import { countryFromNumber, countryFromRange, maskNumber, serviceLabel } from "../src/domain/labels.ts";
 import { detectLanguage, extractOtp } from "../src/domain/otp.ts";
 
 describe("maskNumber", () => {
@@ -17,6 +17,25 @@ describe("labels", () => {
     expect(serviceLabel("Google")).toBe("GOOGLE");
     expect(serviceLabel("CustomSender")).toBe("CUSTOMSENDER");
     expect(countryFromNumber("6281255512345")).toBe("ID");
+  });
+
+  test("maps any country name to its ISO code, not only Indonesia", () => {
+    expect(countryFromRange("Bolivia Entel", "")).toBe("BO");
+    expect(countryFromRange("Brazil Vivo", "")).toBe("BR");
+    expect(countryFromRange("United Arab Emirates Etisalat", "")).toBe("AE");
+    expect(countryFromRange("South Africa Vodacom", "")).toBe("ZA");
+    expect(countryFromRange("Greece Vodafone", "")).toBe("GR");
+    expect(countryFromRange("Sweden Telia", "")).toBe("SE");
+    expect(countryFromRange("Unknown Land", "")).toBe("");
+  });
+
+  test("the country name wins over the numeric prefix of the number", () => {
+    expect(countryFromNumber("59171234567")).toBe("BO");
+    expect(countryFromNumber("5511987654321")).toBe("BR");
+    expect(countryFromNumber("380501234567")).toBe("UA");
+    expect(countryFromNumber("971501234567")).toBe("AE");
+    expect(countryFromNumber("27601234567")).toBe("ZA");
+    expect(countryFromNumber("447700900123")).toBe("GB");
   });
 });
 
