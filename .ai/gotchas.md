@@ -59,6 +59,14 @@ Passing `{ style }` as the second argument to `.text()` is a type error.
 handler checks `isMenuButton(text)` before consuming input for "add key" or "add
 channel"; otherwise a menu tap would be stored as a key label or a channel link.
 
+## Do not decorate the OTP message with emoji separator rows
+
+A `➖➖➖` row appended to the bold info line renders glued to the last word and inherits
+the bold weight, so it reads as a smear rather than a divider. The message separates the
+text from the reply keyboard with a trailing blank line (`"*…*\n"`) instead. Do not
+reintroduce a decoration row to "make the buttons look wider" — inline button width is
+set by Telegram, not by the message text. `tests/logMessage.test.ts` asserts no `➖`.
+
 ## The OTP button text is dashed but its `copy_text` is not
 
 The red OTP button shows the code grouped with dashes (`247-299-9`, `482-913`, `98-76`) so

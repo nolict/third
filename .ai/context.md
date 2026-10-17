@@ -62,11 +62,15 @@ they exist solely to become buttons on the OTP message. Keep the two roles separ
 
 ## OTP Message Format
 
-A single bold info line. No blockquote, no code fence, no decorative emoji, and **the code
-never appears in the visible text** — it lives only on the copy button.
+A single bold info line, then one blank line, and no decoration row: emoji separators
+render glued to the text in bold and look like damage, so whitespace does the spacing.
+No blockquote, no code fence, no decorative emoji, and **the code never appears in the
+visible text** — it lives only on the copy button.
 
 ```
 BO | WA 5917•••4567 #EN      (bold)
+
+[947-299-9]                 (red copy button, full width)
 ```
 
 The leading field is the ISO 3166 alpha-2 code of the country. `labels.ts` maps every
