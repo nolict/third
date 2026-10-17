@@ -59,11 +59,27 @@ Passing `{ style }` as the second argument to `.text()` is a type error.
 handler checks `isMenuButton(text)` before consuming input for "add key" or "add
 channel"; otherwise a menu tap would be stored as a key label or a channel link.
 
+## Country codes must not be prefix-matched
+
+`countryFromNumber` matches calling codes against the raw digits, so a short prefix such
+as `5` would shadow `591` (Bolivia) or `55` (Brazil). The table is therefore searched in
+listed order with no `5`/`5x` ambiguity, and `formatLogMessage` prefers
+`countryFromRange(rangeName)` over the number: the range name ("Bolivia Entel") is
+authoritative, the number is only a fallback. Do not trim the country-name list back to a
+handful of countries — an unmapped name falls through to `??` even though the number is
+known.
+
+## A derived `t.me/c/<id>` button URL is not the channel the admin configured
+
+Buttons built from the numeric `chat_id` misroute for username-only chats and topics. Use
+`number_channels.link_url` (stored from the pasted link); `targetUrl()` is a legacy
+fallback only.
+
 ## Copy-text buttons with a placeholder, and missing numbers channels
 
 The OTP button row is always the first row so the code button is full width. When no code
-is extracted the button text and `copy_text` payload become `-`; the code itself must
-never be wrapped in backticks, because the button has to show the bare digits.
+is extracted the button row is dropped entirely; the code itself must never be wrapped in
+backticks, because the button has to show the bare digits.
 
 When there is no numbers channel the message is sent with `inline_keyboard: []` — not with
 `url: ""`. Telegram rejects empty button URLs with `BUTTON_URL_INVALID`, so

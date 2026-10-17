@@ -288,3 +288,37 @@ only way to confirm the topic exists without posting a real message.
 
 - Topic links only work for forum supergroups; regular channels reject a topic ID.
 - Each added topic costs one extra API call.
+
+---
+
+# Channel button URLs are the links the admin typed
+
+Status: Accepted
+
+## Context
+
+`number_channels` buttons were built with `targetUrl(chatId, threadId)`, which derives
+`https://t.me/c/<id>` from the raw numeric `chat_id`. For chats that only expose a public
+username, or for topics, that derived link is wrong or dead: the admin pressed a button
+and landed on a channel that was not the configured one.
+
+## Decision
+
+`parseChannelLink` returns the canonical `url` alongside `chatId`/`threadId`, and that URL
+is stored in `number_channels.link_url`. `numberButtons()` uses the stored value verbatim;
+`targetUrl()` remains only as a fallback for rows created before the column existed.
+
+Accept `https://t.me/<username>` links too — they resolve to `@username` with no topic.
+
+## Reasoning
+
+The link the admin pasted is the only trustworthy source for where the button should go.
+Deriving it again from a numeric id duplicates knowledge already present in the input.
+
+## Consequences
+
+- `number_channels.link_url` is `TEXT NOT NULL DEFAULT ''`; the schema is applied at
+  startup, so the bot must be restarted for the column to exist (see gotchas).
+- Rows added before this change keep an empty `link_url` and fall back to `targetUrl`.
+- The Set Channel screen and `Cek tombol` show the URL so a misroute is visible before an
+  OTP message is ever sent.

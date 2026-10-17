@@ -38,7 +38,8 @@ Layers under `src/`:
 - `log_channels` — delivery targets `(chat_id, thread_id)` with `title` and `is_active`.
   `thread_id IS NULL` means the channel's main feed; otherwise it is a forum topic.
 - `number_channels` — **button-only** targets, never delivery targets. Same shape plus
-  `label` (button text) and `position` (0 = left, 1 = right). Capped at 2 rows
+  `label` (button text), `position` (0 = left, 1 = right) and `link_url` (the exact link
+  the admin typed, used verbatim as the button URL). Capped at 2 rows
   (`maxNumberChannels`). `is_active` exists in the table but is unused for this kind.
 - `otp_logs` — one row per delivered OTP; `UNIQUE (api_key_id, fingerprint)` is the
   deduplication mechanism, `ON DELETE RESTRICT` protects history from key deletion.
@@ -56,16 +57,23 @@ they exist solely to become buttons on the OTP message. Keep the two roles separ
   channel toggled off receives nothing, and a failing target does not block the others.
 - Delivery stops only when there is no active log channel. Missing numbers channels do
   not block delivery; the message is sent without buttons.
-- The numbers buttons are ordered by `position` and mapped to `targetUrl` (topic-aware).
+- The numbers buttons are ordered by `position` and mapped to `number_channels.link_url`.
+  `targetUrl()` is only a fallback for rows stored before that column existed.
 
 ## OTP Message Format
 
-A single bold info line. No blockquote, no code fence, no decorative emoji, and **the code
+A single bold info line followed by a full-width ➖ separator row, so the reply keyboard
+never crowds the text. No blockquote, no code fence, no decorative emoji, and **the code
 never appears in the visible text** — it lives only on the copy button.
 
 ```
-ID | WA 6281•••••2345 #ID      (bold)
+BO | WA 5917•••4567 #EN➖➖➖➖➖➖➖➖➖➖➖➖      (bold)
 ```
+
+The leading field is the ISO 3166 alpha-2 code of the country. `labels.ts` maps every
+country name (English and Indonesian variants) and every numeric calling code, so the
+message is not Indonesia-only. The range name wins over the numeric prefix: `Bolivia …`
+with `591…` is `BO`, never a prefix match on `5`.
 
 Inline buttons:
 
@@ -73,7 +81,8 @@ Inline buttons:
   text **is** the code. Omitted entirely when no code is extracted; there is no `-`
   placeholder, because an empty button would only invite misclicks.
 - Row 2 — up to two buttons side by side (position 0 left, 1 right), labelled from
-  `number_channels.label`, styled `primary` (blue), each a pure `url` button.
+  `number_channels.label`, styled `primary` (blue), each a pure `url` button whose URL is
+  the link stored in `number_channels.link_url`.
 
 Both markdown paths must stay in sync: `markdownV2` bolds with `*…*` after
 `escapeMarkdownV2`, `legacyMarkdown` bolds with `*…*` after `escapeLegacyMarkdown`.
