@@ -10,6 +10,8 @@ const entry: LogEntry = {
   sms: "Your WhatsApp code is 947-2999. Do not share it with anyone.",
 };
 
+const separator = "➖➖➖➖➖➖➖➖➖➖➖➖";
+
 const numbers: NumberButton[] = [
   { label: "Leads A", url: "https://t.me/leads_a" },
   { label: "Leads B", url: "https://t.me/leads_b" },
@@ -18,12 +20,12 @@ const numbers: NumberButton[] = [
 describe("formatLogMessage", () => {
   test("renders only the bold info line, without the code in the text", () => {
     const { markdownV2 } = formatLogMessage(entry, numbers);
-    expect(markdownV2).toBe("*ID \\| WA 6281•••••2345 \\#EN*");
+    expect(markdownV2).toBe(`*ID \\| WA 6281•••••2345 \\#EN${separator}*`);
   });
 
   test("bolds the info line in the legacy markdown fallback too", () => {
     const { legacyMarkdown } = formatLogMessage(entry, numbers);
-    expect(legacyMarkdown).toBe("*ID | WA 6281•••••2345 #EN*");
+    expect(legacyMarkdown).toBe(`*ID | WA 6281•••••2345 #EN${separator}*`);
   });
 
   test("never leaks the code into the visible text", () => {
@@ -69,7 +71,7 @@ describe("formatLogMessage", () => {
       { ...entry, sms: "Your account email has been changed." },
       numbers,
     );
-    expect(markdownV2).toBe("*ID \\| WA 6281•••••2345 \\#EN*");
+    expect(markdownV2).toBe(`*ID \\| WA 6281•••••2345 \\#EN${separator}*`);
     expect(replyMarkup.inline_keyboard).toEqual([
       [
         { text: "Leads A", url: "https://t.me/leads_a", style: "primary" },
@@ -80,7 +82,7 @@ describe("formatLogMessage", () => {
 
   test("keeps the otp button but drops channels when no numbers channel is configured", () => {
     const { markdownV2, replyMarkup } = formatLogMessage(entry, []);
-    expect(markdownV2).toBe("*ID \\| WA 6281•••••2345 \\#EN*");
+    expect(markdownV2).toBe(`*ID \\| WA 6281•••••2345 \\#EN${separator}*`);
     expect(replyMarkup.inline_keyboard).toEqual([
       [{ text: "9472999", copy_text: { text: "9472999" }, style: "danger" }],
     ]);
