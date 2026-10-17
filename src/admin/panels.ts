@@ -2,13 +2,7 @@ import type { Bot, Context } from "grammy";
 import type { ChatFullInfo } from "grammy/types";
 
 import { config, pageSize } from "../config/env.ts";
-import {
-  createApiKey,
-  deleteApiKey,
-  findApiKeyById,
-  listApiKeys,
-  replaceApiKeyToken,
-} from "../db/apiKeys.ts";
+import { createApiKey, deleteApiKey, findApiKeyById, listApiKeys } from "../db/apiKeys.ts";
 import {
   addChannel,
   addNumberChannel,
@@ -26,6 +20,7 @@ import { transaction } from "../db/pool.ts";
 import { parseChannelLink } from "../domain/channelLink.ts";
 import { formatLogMessage, type NumberButton } from "../domain/logMessage.ts";
 import { escapeHtml, truncate } from "../lib/format.ts";
+import { verifyApiKey } from "../services/thirdwave.ts";
 import type { LogDelivery, OutgoingMessage } from "../bot/telegram.ts";
 import {
   adminReplyKeyboard,
@@ -47,6 +42,7 @@ import {
   channelView,
   channelsView,
   homeView,
+  keyLabelPromptView,
   keysView,
   keyPromptView,
   keyView,
@@ -57,8 +53,9 @@ const maxLabelLength = 32;
 const maxKeys = 100;
 
 interface AdminSession {
-  screen: ChannelKind | "keys" | "label";
+  screen: ChannelKind | "keys" | "keyLabel" | "label";
   pendingNumber?: { chatId: string; threadId: number | null; title: string };
+  pendingToken?: string;
 }
 
 interface AdminDeps {
@@ -159,10 +156,14 @@ export class AdminPanel {
     }
     const session = this.sessions.get(userId);
     this.sessions.delete(userId);
-    await this.openScreen(ctx, session?.screen === "label" ? "number" : (session?.screen ?? "home"));
+    const screen = session?.screen ?? "home";
+    await this.openScreen(
+      ctx,
+      screen === "label" ? "number" : screen === "keyLabel" ? "keys" : screen,
+    );
   }
 
-  private async openScreen(ctx: Context, screen: "home" | "keys" | "label" | ChannelKind): Promise<void> {
+  private async openScreen(ctx: Context, screen: "home" | "keys" | ChannelKind): Promise<void> {
     if (screen === "keys") {
       await this.showKeys(ctx, 0);
     } else if (screen === "log" || screen === "number") {
@@ -267,7 +268,7 @@ export class AdminPanel {
     confirm: string | undefined,
   ): Promise<void> {
     if (action === "add") {
-      await this.promptForKeyLabel(ctx);
+      await this.promptForApiKey(ctx);
       return;
     }
     if (action === "noop") {
@@ -282,8 +283,6 @@ export class AdminPanel {
     }
     if (action === "view") {
       await this.showKey(ctx, id);
-    } else if (action === "rotate") {
-      await this.rotateKey(ctx, id);
     } else if (action === "delete") {
       await this.deleteKey(ctx, id, confirm === "yes");
     }
@@ -336,13 +335,27 @@ export class AdminPanel {
     }
   }
 
-  private async promptForKeyLabel(ctx: Context): Promise<void> {
+  private async promptForApiKey(ctx: Context): Promise<void> {
     const userId = adminId(ctx);
     if (userId === undefined) {
       return;
     }
     this.sessions.set(userId, { screen: "keys" });
     await renderPanel(ctx, keyPromptView(), cancelKeyboard("keys"));
+  }
+
+  private async promptKeyLabel(ctx: Context): Promise<void> {
+    const userId = adminId(ctx);
+    if (userId === undefined) {
+      return;
+    }
+    const session = this.sessions.get(userId);
+    const pendingToken = session?.pendingToken;
+    this.sessions.set(
+      userId,
+      pendingToken === undefined ? { screen: "keyLabel" } : { screen: "keyLabel", pendingToken },
+    );
+    await renderPanel(ctx, keyLabelPromptView(), cancelKeyboard("keys"));
   }
 
   private async promptChannel(ctx: Context, kind: ChannelKind): Promise<void> {
@@ -365,16 +378,6 @@ export class AdminPanel {
     }
     this.sessions.set(userId, { screen: "label", pendingNumber: pending });
     await renderPanel(ctx, labelPromptView(pending.title), cancelKeyboard("number"));
-  }
-
-  private async rotateKey(ctx: Context, id: number): Promise<void> {
-    if (!(await findApiKeyById(id))) {
-      await this.showKeys(ctx, 0);
-      return;
-    }
-    await transaction((client) => replaceApiKeyToken(client, id));
-    this.deps.forgetApiKey(id);
-    await this.showKey(ctx, id);
   }
 
   private async deleteKey(ctx: Context, id: number, confirmed: boolean): Promise<void> {
@@ -476,7 +479,9 @@ export class AdminPanel {
       return;
     }
     if (session.screen === "keys") {
-      await this.submitKeyLabel(ctx, userId, text);
+      await this.submitApiKey(ctx, userId, text);
+    } else if (session.screen === "keyLabel") {
+      await this.submitKeyLabel(ctx, userId, session.pendingToken ?? "", text);
     } else if (session.screen === "label") {
       await this.submitNumberLabel(ctx, userId, session.pendingNumber, text);
     } else {
@@ -484,19 +489,38 @@ export class AdminPanel {
     }
   }
 
-  private async submitKeyLabel(ctx: Context, userId: number, text: string): Promise<void> {
-    const label = text.trim();
-    if (label.length === 0 || label.length > maxLabelLength) {
-      await ctx.reply(`Nama harus 1-${maxLabelLength} karakter.`);
+  private async submitApiKey(ctx: Context, userId: number, text: string): Promise<void> {
+    const token = text.trim();
+    if (token.length === 0 || /\s/.test(token)) {
+      await ctx.reply("API key tidak valid. Kirim satu token tanpa spasi.");
       return;
     }
     if ((await listApiKeys()).length >= maxKeys) {
       await ctx.reply(`Maksimal ${maxKeys} key.`);
       return;
     }
-    const key = await transaction((client) => createApiKey(client, label));
-    this.sessions.delete(userId);
-    await this.showKey(ctx, key.id);
+    const check = await verifyApiKey(token);
+    if (!check.ok) {
+      await ctx.reply(check.reason);
+      return;
+    }
+    this.sessions.set(userId, { screen: "keyLabel", pendingToken: token });
+    await this.promptKeyLabel(ctx);
+  }
+
+  private async submitKeyLabel(ctx: Context, userId: number, token: string, text: string): Promise<void> {
+    const label = text.trim();
+    if (label.length === 0 || label.length > maxLabelLength) {
+      await ctx.reply(`Label harus 1-${maxLabelLength} karakter.`);
+      return;
+    }
+    try {
+      const key = await transaction((client) => createApiKey(client, label, token));
+      this.sessions.delete(userId);
+      await this.showKey(ctx, key.id);
+    } catch (error) {
+      await ctx.reply(errorMessage(error));
+    }
   }
 
   private async submitChannel(

@@ -16,7 +16,6 @@ function fingerprint(item: TrafficItem): string {
 
 export class OtpPoller {
   private readonly inFlight = new Set<number>();
-  private readonly lastSeen = new Map<number, string>();
   private readonly errorLogged = new Set<number>();
   private timer: ReturnType<typeof setInterval> | undefined;
 
@@ -45,7 +44,6 @@ export class OtpPoller {
   }
 
   forgetApiKey(id: number): void {
-    this.lastSeen.delete(id);
     this.errorLogged.delete(id);
   }
 
@@ -72,11 +70,14 @@ export class OtpPoller {
     }
     const numberButtons = await this.delivery.numberButtons();
 
-    for (const item of items) {
+    // The API returns newest-first. Any item we have not delivered yet must be sent,
+    // even when it sits *below* an item seen on an earlier poll (polling is not
+    // instantaneous, so a message can appear late in the list). Send oldest-first so
+    // the channel still reads chronologically.
+    const oldestFirst = [...items].reverse();
+
+    for (const item of oldestFirst) {
       const id = fingerprint(item);
-      if (this.lastSeen.get(apiKeyId) === id) {
-        break;
-      }
       const receivedAt = new Date(item.receivedAt);
       if (Number.isNaN(receivedAt.getTime())) {
         continue;
@@ -107,7 +108,6 @@ export class OtpPoller {
         };
         await this.fanOut(targets, message);
       }
-      this.lastSeen.set(apiKeyId, id);
     }
   }
 

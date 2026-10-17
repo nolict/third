@@ -63,21 +63,42 @@ Status: Accepted
 ## Context
 
 Admins must add an arbitrary number of Thirdwave API keys at runtime through the bot.
+The key the bot uses to call `GET /api/v1/traffic` **must be the key issued by Thirdwave**
+— the `api_key` request parameter is the Thirdwave credential itself, so the bot cannot
+invent its own token.
 
 ## Decision
 
-Store keys in `api_keys` with a random `base64url` token. The bot does not store
-Thirdwave keys in `.env`. `ADMIN_IDS` and `DATABASE_URL` remain environment config.
+Store the Thirdwave API key verbatim in `api_keys.token` (`UNIQUE`). `label` is only a
+human-friendly name chosen by the admin so keys can be told apart in the panel.
+
+Adding a key is a two-step flow: send the Thirdwave key first, then a label.
+
+```
+1) panels prompt: "Kirim API key dari dashboard thirdwave.im"
+2) submitApiKey: reject if empty/contains whitespace, reject when maxKeys reached,
+   then call verifyApiKey() which hits GET /api/v1/traffic?api_key=…&limit=1
+3) verifyApiKey: 401 -> "key tidak valid", 403 -> "akses API belum aktif",
+   429 -> treated as ok (key exists, just throttled), network/5xx -> error message
+4) only on ok: session becomes `keyLabel` with pendingToken
+5) submitKeyLabel: stores {label, token}; duplicate token rejected ("sudah terdaftar")
+```
+
+There is **no** key rotation. Rotating a Thirdwave key is an action taken at Thirdwave,
+not something the bot can perform, and a self-generated token is useless. Admins delete
+the stale row and add the new key instead.
 
 ## Reasoning
 
-Runtime management without redeploys, and the set of API keys is operational data
-rather than deployment configuration.
+A locally generated token is never accepted by Thirdwave, so it would make the bot poll
+with a credential the API rejects. Validating on entry turns a silent runtime failure
+(401 on every tick) into immediate feedback at the moment the key is added.
 
 ## Consequences
 
-- The poller must reload keys from the database on each tick.
+- `createApiKey(client, label, token)` takes the token; the bot never generates tokens.
 - Key deletion is `ON DELETE RESTRICT` while rows exist in `otp_logs`.
+- Validation costs one live API call per key addition (limit=1, negligible quota).
 
 ---
 

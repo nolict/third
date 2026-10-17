@@ -6,6 +6,15 @@ Record things that future developers or AI agents are likely to get wrong withou
 
 ---
 
+## The `api_keys.token` must be the Thirdwave key, never generated locally
+
+`GET /api/v1/traffic` authenticates with `?api_key=…`, so that value is the Thirdwave
+credential. A `randomBytes().toString("base64url")` token looks fine in the panel but
+makes every poll return 401. `createApiKey(client, label, token)` therefore takes the
+token as an argument and the panel validates it with `verifyApiKey()` before saving.
+`label` is only the display name. There is no key rotation — Thirdwave rotates the key,
+not the bot.
+
 ## Thirdwave `sms` may have digits masked
 
 Unless the account has permission to view digits, the API returns `sms` with digits

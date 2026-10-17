@@ -105,7 +105,6 @@ export function keysKeyboard(keys: ApiKeyRecord[], page: number): InlineKeyboard
 
 export function keyDetailKeyboard(id: number): InlineKeyboard {
   return new InlineKeyboard()
-    .text("Rotate", `k:rotate:${id}`).style("primary")
     .text("Hapus", `k:delete:${id}`).style("danger")
     .row()
     .text("Kembali", "m:keys");

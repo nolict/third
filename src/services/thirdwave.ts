@@ -103,3 +103,26 @@ export async function fetchRecentTraffic(apiKey: string, limit = 20): Promise<Tr
   }
   return parseTraffic(payload);
 }
+
+export type ApiKeyCheck = { ok: true } | { ok: false; reason: string };
+
+export async function verifyApiKey(apiKey: string): Promise<ApiKeyCheck> {
+  try {
+    await fetchRecentTraffic(apiKey, 1);
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof ThirdwaveError) {
+      if (error.status === 401) {
+        return { ok: false, reason: "API key tidak valid atau sudah dicabut (401)." };
+      }
+      if (error.status === 403) {
+        return { ok: false, reason: "Akses API belum aktif untuk akun ini (403)." };
+      }
+      if (error.status === 429) {
+        return { ok: true };
+      }
+      return { ok: false, reason: error.message };
+    }
+    return { ok: false, reason: error instanceof Error ? error.message : String(error) };
+  }
+}

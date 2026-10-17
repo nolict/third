@@ -133,7 +133,23 @@ export function channelPromptView(kind: "log" | "number"): string {
 }
 
 export function keyPromptView(): string {
-  return ["<b>Tambah API key</b>", "", "Kirim nama key pada pesan berikutnya."].join("\n");
+  return [
+    "<b>Tambah API key</b>",
+    "",
+    "Kirim API key dari dashboard thirdwave.im.",
+    "",
+    "Key akan dicek langsung ke thirdwave sebelum disimpan.",
+    "Key yang tidak valid ditolak.",
+  ].join("\n");
+}
+
+export function keyLabelPromptView(): string {
+  return [
+    "<b>Beri label</b>",
+    "",
+    "Key valid. Sekarang kirim label untuk key ini.",
+    "Contoh: Utama, Cadangan, Trial",
+  ].join("\n");
 }
 
 export function labelPromptView(title: string): string {
