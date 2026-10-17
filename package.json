@@ -1,0 +1,24 @@
+{
+  "name": "otp",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "module": "src/index.ts",
+  "scripts": {
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts",
+    "check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "grammy": "^1.46.0",
+    "pg": "^8.23.1"
+  },
+  "peerDependencies": {
+    "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.3",
+    "@types/pg": "^8.23.1"
+  }
+}

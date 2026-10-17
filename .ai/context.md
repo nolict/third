@@ -1,0 +1,113 @@
+# Project Context
+
+## Overview
+
+Telegram bot that mirrors OTP SMS traffic from the Thirdwave API into Telegram
+log channels. Runs as a single long-polling Bun process with PostgreSQL (Aiven, TLS).
+
+## Current State
+
+- Project stage: Working implementation
+- Stack: Bun 1.4, TypeScript (strict, `tsc --noEmit`), grammY 1.46, `pg` 8, PostgreSQL
+- Status: Implemented; requires `BOT_TOKEN`, `ADMIN_IDS`, `DATABASE_URL` to run
+
+## Architecture
+
+Layers under `src/`:
+
+- `config/env.ts` — environment parsing (`BOT_TOKEN`, `ADMIN_IDS`, `DATABASE_URL`) and
+  polling/timeout/page constants. Throws at import time when required values are missing.
+- `db/` — `pool.ts` (pg pool, SSL handling, `query`, `transaction`), `apiKeys.ts`,
+  `channels.ts` (both channel kinds via one `ChannelKind = "log" | "number"` module),
+  `otpLogs.ts`, `schema.ts` (applies `sql/schema.sql` on startup).
+- `services/thirdwave.ts` — typed client for `GET /api/v1/traffic` with payload validation.
+- `services/poller.ts` — polls every active API key every 5 s, deduplicates, delivers.
+- `domain/` — pure logic, no I/O: `otp.ts` (code + language extraction), `labels.ts`
+  (country/service/masking), `channelLink.ts` (`t.me/c/<id>/<topic>` parsing),
+  `logMessage.ts` (MarkdownV2 renderer + inline buttons).
+- `admin/` — admin-only private-chat control panel: `keyboards.ts`, `views.ts`,
+  `render.ts`, `panels.ts`, `targets.ts`.
+- `bot/telegram.ts` — delivery adapter: lists targets, resolves the numbers URL, sends
+  MarkdownV2 with legacy-Markdown fallback and optional `message_thread_id`.
+- `index.ts` — wiring, bot loop, graceful shutdown.
+
+## Data Model
+
+- `api_keys` — multiple Thirdwave API keys, token is random `base64url`.
+- `log_channels` — delivery targets `(chat_id, thread_id)` with `title` and `is_active`.
+  `thread_id IS NULL` means the channel's main feed; otherwise it is a forum topic.
+- `number_channels` — **button-only** targets, never delivery targets. Same shape plus
+  `label` (button text) and `position` (0 = left, 1 = right). Capped at 2 rows
+  (`maxNumberChannels`). `is_active` exists in the table but is unused for this kind.
+- `otp_logs` — one row per delivered OTP; `UNIQUE (api_key_id, fingerprint)` is the
+  deduplication mechanism, `ON DELETE RESTRICT` protects history from key deletion.
+- No `is_primary` column and no settings-based single channel any more.
+- The old `settings` key/value table is no longer used by the bot.
+
+## Delivery
+
+**Only `log_channels` receive OTP messages.** `number_channels` never receive anything;
+they exist solely to become buttons on the OTP message. Keep the two roles separate:
+`listTargets()` reads `log_channels` only, `numberButtons()` reads `number_channels` only.
+`setChannelActive` throws for `kind === "number"` to keep it that way.
+
+- Every OTP is sent to all **active** `log_channels` targets (`Promise.allSettled`); a
+  channel toggled off receives nothing, and a failing target does not block the others.
+- Delivery stops only when there is no active log channel. Missing numbers channels do
+  not block delivery; the message is sent without buttons.
+- The numbers buttons are ordered by `position` and mapped to `targetUrl` (topic-aware).
+
+## OTP Message Format
+
+A single bold info line. No blockquote, no code fence, no decorative emoji, and **the code
+never appears in the visible text** — it lives only on the copy button.
+
+```
+ID | WA 6281•••••2345 #ID      (bold)
+```
+
+Inline buttons:
+
+- Row 1 — the OTP itself, full width, `style: "danger"` (red), a `copy_text` button whose
+  text **is** the code. Omitted entirely when no code is extracted; there is no `-`
+  placeholder, because an empty button would only invite misclicks.
+- Row 2 — up to two buttons side by side (position 0 left, 1 right), labelled from
+  `number_channels.label`, styled `primary` (blue), each a pure `url` button.
+
+Both markdown paths must stay in sync: `markdownV2` bolds with `*…*` after
+`escapeMarkdownV2`, `legacyMarkdown` bolds with `*…*` after `escapeLegacyMarkdown`.
+
+## Menus
+
+Private chat only, restricted to `ADMIN_IDS`.
+
+- Navigation is the reply keyboard only: `Home` (primary) and
+  `API Keys | Log Channels | Set Channel`. No inline menu buttons, no emoji prefixes.
+- Inline keyboards are reserved for in-screen actions with Bot API `style`
+  (`danger` red, `primary` blue): add, toggle, delete, rotate, pagination, back.
+- Screens: home, log channel list/detail, set channel list/detail, key list (paginated),
+  key detail.
+- **Log Channels**: ON/OFF toggle per channel, plus `Test kirim` that really sends a
+  sample OTP to those channels.
+- **Set Channel**: button-only targets. No toggle; `Tukar posisi` swaps left/right and
+  `Cek tombol` only shows an alert describing the current buttons (it must not post).
+- Adding a set channel is two steps: send the link, then send the button label. Log
+  channels use the link only.
+- The set channel list shows each entry as `1.`/`2.` with its left/right side.
+- Channel input accepts `@username`, `-100…`, or a topic link such as
+  `https://t.me/c/4435318978/183` (the trailing number is the topic).
+- Valid targets are `channel` **and** `supergroup` (forum topics), shared log/numbers
+  validation in `admin/targets.ts` (`checkLogTarget`, `checkTopic`).
+
+## Current Priorities
+
+- Keep the poller stateless beyond the dedup ledger; the DB is the source of truth.
+- Follow `AGENTS.md` conventions (no redundant comments, explicit types, minimal layers).
+
+## Active Work
+
+No active feature work.
+
+## Notes
+
+- Only durable project context belongs here.
