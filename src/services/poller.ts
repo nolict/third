@@ -1,22 +1,30 @@
 import { createHash } from "node:crypto";
 
 import { pollIntervalMs } from "../config/env.ts";
-import { claimOtpLog } from "../db/otpLogs.ts";
+import { claimOtpLog, eventKey, listLoggedEvents } from "../db/otpLogs.ts";
 import { formatLogMessage } from "../domain/logMessage.ts";
 import { fetchRecentTraffic, type TrafficItem } from "./thirdwave.ts";
 import type { LogDelivery, OutgoingMessage } from "../bot/telegram.ts";
 
-const maxTrackedApiKeys = 100;
+const trafficWindowSize = 100;
 
-function fingerprint(item: TrafficItem): string {
+function contentHash(item: TrafficItem): string {
   return createHash("sha256")
     .update([item.receivedAt, item.number, item.senderId, item.sms].join("\u0000"))
     .digest("hex");
 }
 
+function nextFingerprint(occurrences: Map<string, number>, item: TrafficItem): string {
+  const base = contentHash(item);
+  const occurrence = (occurrences.get(base) ?? 0) + 1;
+  occurrences.set(base, occurrence);
+  return occurrence === 1 ? base : `${base}:${occurrence}`;
+}
+
 export class OtpPoller {
   private readonly inFlight = new Set<number>();
   private readonly errorLogged = new Set<number>();
+  private readonly reconciled = new Set<number>();
   private timer: ReturnType<typeof setInterval> | undefined;
 
   constructor(private readonly delivery: LogDelivery) {}
@@ -53,13 +61,39 @@ export class OtpPoller {
     }
     this.inFlight.add(apiKey.id);
     try {
-      const items = await fetchRecentTraffic(apiKey.token, maxTrackedApiKeys);
+      const items = await fetchRecentTraffic(apiKey.token, trafficWindowSize);
+      if (!this.reconciled.has(apiKey.id)) {
+        await this.reconcile(apiKey.id, items);
+        this.reconciled.add(apiKey.id);
+      }
       await this.deliver(apiKey.id, items);
       this.errorLogged.delete(apiKey.id);
     } catch (error) {
       this.report(apiKey.id, error);
     } finally {
       this.inFlight.delete(apiKey.id);
+    }
+  }
+
+  // Rows written by older builds carry a fingerprint from a previous algorithm, so a
+  // restart would treat the whole window as new and resend it. Mark events that are
+  // already recorded as delivered before the first delivery after a restart.
+  private async reconcile(apiKeyId: number, items: TrafficItem[]): Promise<void> {
+    const logged = await listLoggedEvents(apiKeyId);
+    if (logged.size === 0) {
+      return;
+    }
+    const occurrences = new Map<string, number>();
+    for (const item of [...items].reverse()) {
+      const receivedAt = new Date(item.receivedAt);
+      if (Number.isNaN(receivedAt.getTime())) {
+        continue;
+      }
+      const id = nextFingerprint(occurrences, item);
+      if (!logged.has(eventKey(item.number, item.senderId, receivedAt))) {
+        continue;
+      }
+      await claimOtpLog(apiKeyId, id, item.number, item.senderId, item.rangeName, receivedAt);
     }
   }
 
@@ -75,17 +109,15 @@ export class OtpPoller {
     // instantaneous, so a message can appear late in the list). Send oldest-first so
     // the channel still reads chronologically.
     const oldestFirst = [...items].reverse();
-    const deliveredThisBatch = new Set<string>();
+    const occurrences = new Map<string, number>();
 
     for (const item of oldestFirst) {
-      const id = fingerprint(item);
-      if (deliveredThisBatch.has(id)) {
-        continue;
-      }
       const receivedAt = new Date(item.receivedAt);
       if (Number.isNaN(receivedAt.getTime())) {
         continue;
       }
+      const id = nextFingerprint(occurrences, item);
+
       const isNew = await claimOtpLog(
         apiKeyId,
         id,
@@ -94,7 +126,6 @@ export class OtpPoller {
         item.rangeName,
         receivedAt,
       );
-      deliveredThisBatch.add(id);
       if (isNew) {
         const rendered = formatLogMessage(
           {

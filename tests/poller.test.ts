@@ -9,9 +9,14 @@ import type { TrafficItem } from "../src/services/thirdwave.ts";
 // the poller itself runs unchanged.
 
 let claimed: { apiKeyId: number; fingerprint: string }[] = [];
+let logged = new Set<string>();
 const delivered: OutgoingMessage[] = [];
 const traffic = new Map<string, TrafficItem[]>();
 const failing = new Set<string>();
+
+function eventKeyOf(value: TrafficItem): string {
+  return [value.number, value.senderId, new Date(value.receivedAt).toISOString()].join("\u0000");
+}
 
 mock.module("../src/services/thirdwave.ts", () => ({
   fetchRecentTraffic: (token: string): Promise<TrafficItem[]> => {
@@ -23,6 +28,9 @@ mock.module("../src/services/thirdwave.ts", () => ({
 }));
 
 mock.module("../src/db/otpLogs.ts", () => ({
+  eventKey: (number: string, senderId: string, receivedAt: Date): string =>
+    [number, senderId, receivedAt.toISOString()].join("\u0000"),
+  listLoggedEvents: (): Promise<Set<string>> => Promise.resolve(new Set(logged)),
   claimOtpLog: (apiKeyId: number, fingerprint: string): Promise<boolean> => {
     const seen = claimed.some(
       (row) => row.apiKeyId === apiKeyId && row.fingerprint === fingerprint,
@@ -69,6 +77,7 @@ const twoKeys = [
 describe("poller fans out every API key", () => {
   beforeEach(() => {
     claimed = [];
+    logged = new Set<string>();
     delivered.length = 0;
     traffic.clear();
     failing.clear();
@@ -133,5 +142,45 @@ describe("poller fans out every API key", () => {
     await poller.poll();
 
     expect(delivered).toHaveLength(2);
+  });
+
+  test("two identical OTPs in one batch are both delivered, not collapsed", async () => {
+    const identical = "Your WhatsApp code: 555-555.";
+    traffic.set("A", [
+      item("5", identical, "2026-10-06T00:00:05Z"),
+      item("5", identical, "2026-10-06T00:00:05Z"),
+    ]);
+
+    await new OtpPoller(makeDelivery([{ id: 1, token: "A" }])).poll();
+
+    expect(delivered).toHaveLength(2);
+  });
+
+  test("restarting the poller does not resend the same window", async () => {
+    traffic.set("A", [
+      item("2", "Your WhatsApp code: 222-222.", "2026-10-06T00:00:02Z"),
+      item("1", "Your WhatsApp code: 111-111.", "2026-10-06T00:00:01Z"),
+    ]);
+
+    const delivery = makeDelivery([{ id: 1, token: "A" }]);
+
+    await new OtpPoller(delivery).poll();
+    expect(delivered).toHaveLength(2);
+
+    delivered.length = 0;
+    await new OtpPoller(delivery).poll();
+    expect(delivered).toHaveLength(0);
+  });
+
+  test("restart skips rows written with an older fingerprint but still sends new OTPs", async () => {
+    const seen = item("1", "Your WhatsApp code: 111-111.", "2026-10-06T00:00:01Z");
+    const fresh = item("2", "Your WhatsApp code: 222-222.", "2026-10-06T00:00:02Z");
+    traffic.set("A", [fresh, seen]);
+
+    logged = new Set([eventKeyOf(seen)]);
+
+    await new OtpPoller(makeDelivery([{ id: 1, token: "A" }])).poll();
+
+    expect(delivered).toHaveLength(1);
   });
 });

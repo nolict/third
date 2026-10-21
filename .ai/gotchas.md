@@ -1,13 +1,21 @@
 # Gotchas
 
-## Fingerprint includes position to preserve duplicate SMS from same provider
+## Fingerprint is content-based plus an occurrence suffix, never a window position
 
 Two SMS that are byte-for-byte identical (same `receivedAt`, `number`, `senderId`, `sms`)
-produce the same content-based hash. If a provider sends the same OTP twice in one
-response, the second would be silently dropped by `ON CONFLICT DO NOTHING`. The fingerprint
-now includes the item's position in the oldest-first list, so each slot in the response
-window is unique even when content repeats. Changing this hashing will invalidate the
-existing deduplication ledger for those items (they would re-deliver once).
+hash to the same value. If a provider sends the same OTP twice in one response, the second
+would be dropped by `ON CONFLICT DO NOTHING`. The poller therefore numbers repeated
+content within a batch: the first is `<hash>`, the next is `<hash>:2`, `<hash>:3`, …
+
+The suffix counts **only identical items**, never the absolute position in the response
+window. An earlier revision used the window position, and because the window shifts on
+every new OTP, every poll produced fresh fingerprints for old items: the bot re-sent the
+whole window on restart and kept inserting duplicate ledger rows.
+
+`OtpPoller.reconcile()` runs on the first successful poll per key and marks events that
+are already logged as delivered before sending anything. It exists because rows written by
+older builds carry different fingerprints; without it a restart would resend the window.
+It matches on `(number, sender_id, received_at)`, so it must keep using `eventKey()`.
 
 ## Custom emoji in MarkdownV2 — format and bot requirement
 

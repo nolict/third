@@ -21,7 +21,9 @@ Layers under `src/`:
   `channels.ts` (both channel kinds via one `ChannelKind = "log" | "number"` module),
   `otpLogs.ts`, `schema.ts` (applies `sql/schema.sql` on startup).
 - `services/thirdwave.ts` — typed client for `GET /api/v1/traffic` with payload validation.
-- `services/poller.ts` — polls every active API key every 5 s, deduplicates, delivers.
+- `services/poller.ts` — polls every active API key every 5 s over a 100-item traffic
+  window (the API maximum), deduplicates, delivers. On the first poll per key it also
+  reconciles old ledger rows so a restart never resends the window.
 - `domain/` — pure logic, no I/O: `otp.ts` (code + language extraction), `labels.ts`
   (country/service/masking), `channelLink.ts` (`t.me/c/<id>/<topic>` parsing),
   `logMessage.ts` (MarkdownV2 renderer + inline buttons).
