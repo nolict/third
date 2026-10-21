@@ -17,13 +17,14 @@ const numbers: NumberButton[] = [
 
 const waAppEmoji = "![📱](tg://emoji?id=5334998226636390258)";
 const fallbackAppEmoji = "![📱](tg://emoji?id=5334998226636390258)";
+const idFlagEmoji = "![🏳](tg://emoji?id=5294378161117614233)";
 const usFlagEmoji = "![🏳](tg://emoji?id=5294244076533600593)";
 const s = "![⬛](tg://emoji?id=5438496463044752972)";
 
 describe("formatLogMessage", () => {
   test("renders the bold info line with custom emoji in markdownV2", () => {
     const { markdownV2 } = formatLogMessage(entry, numbers);
-    expect(markdownV2).toBe(`*ID ${waAppEmoji} • \\+6281${s}2345 \\#EN*\n`);
+    expect(markdownV2).toBe(`*${idFlagEmoji} ID ${waAppEmoji} • \\+6281${s}2345 \\#EN*\n`);
   });
 
   test("legacy markdown fallback uses plain text without custom emoji", () => {
@@ -119,7 +120,7 @@ describe("formatLogMessage", () => {
       { ...entry, sms: "Your account email has been changed." },
       numbers,
     );
-    expect(markdownV2).toBe(`*ID ${waAppEmoji} • \\+6281${s}2345 \\#EN*\n`);
+    expect(markdownV2).toBe(`*${idFlagEmoji} ID ${waAppEmoji} • \\+6281${s}2345 \\#EN*\n`);
     expect(replyMarkup.inline_keyboard).toEqual([
       [
         { text: "Leads A", url: "https://t.me/leads_a", style: "primary" },
@@ -130,7 +131,7 @@ describe("formatLogMessage", () => {
 
   test("keeps the otp button but drops channels when no numbers channel is configured", () => {
     const { markdownV2, replyMarkup } = formatLogMessage(entry, []);
-    expect(markdownV2).toBe(`*ID ${waAppEmoji} • \\+6281${s}2345 \\#EN*\n`);
+    expect(markdownV2).toBe(`*${idFlagEmoji} ID ${waAppEmoji} • \\+6281${s}2345 \\#EN*\n`);
     expect(replyMarkup.inline_keyboard).toEqual([
       [{ text: "947-299-9", copy_text: { text: "9472999" }, style: "danger" }],
     ]);
