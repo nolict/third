@@ -4,10 +4,10 @@ import { countryFromNumber, countryFromRange, maskNumber, serviceLabel } from ".
 import { detectLanguage, extractOtp } from "../src/domain/otp.ts";
 
 describe("maskNumber", () => {
-  test("keeps prefix and last four digits", () => {
-    expect(maskNumber("6281255512345")).toBe("6281•••••2345");
-    expect(maskNumber("+94702999001")).toBe("9470•••9001");
-    expect(maskNumber("1234")).toBe("1234•••");
+  test("keeps prefix and last four digits with one sensor", () => {
+    expect(maskNumber("6281255512345")).toBe("+6281•2345");
+    expect(maskNumber("+94702999001")).toBe("+9470•9001");
+    expect(maskNumber("1234")).toBe("+1234•");
   });
 });
 
