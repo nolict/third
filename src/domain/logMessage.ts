@@ -37,7 +37,7 @@ function customEmoji(emojiId: string, fallback: string): string {
 }
 
 function renderMaskedNumber(parts: MaskedNumber): string {
-  const sensor = customEmoji(sensorEmojiId, "•");
+  const sensor = customEmoji(sensorEmojiId, "⬛");
   return `${escapeMarkdownV2(parts.prefix)}${sensor.repeat(parts.hiddenCount)}${escapeMarkdownV2(parts.tail)}`;
 }
 

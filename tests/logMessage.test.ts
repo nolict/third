@@ -18,7 +18,7 @@ const numbers: NumberButton[] = [
 const waAppEmoji = "![📱](tg://emoji?id=5334998226636390258)";
 const fallbackAppEmoji = "![📱](tg://emoji?id=5334998226636390258)";
 const usFlagEmoji = "![🏳](tg://emoji?id=5294244076533600593)";
-const s = "![•](tg://emoji?id=5438496463044752972)";
+const s = "![⬛](tg://emoji?id=5438496463044752972)";
 const masked = (prefix: string, count: number, tail: string) => `${prefix}${s.repeat(count)}${tail}`;
 
 describe("formatLogMessage", () => {
