@@ -320,12 +320,12 @@ export function countryFromNumber(number: string): string {
 }
 
 const serviceLabels: ReadonlyArray<readonly [pattern: RegExp, label: string, emojiId: string | null]> = [
-  [/whatsapp/i, "WA", "5233354831984353090"],
-  [/telegram/i, "TG", null],
+  [/whatsapp/i, "WA", "5334998226636390258"],
+  [/telegram/i, "TG", "5330237710655306682"],
+  [/tiktok/i, "TIKTOK", "5327982530702359565"],
   [/google|gmail/i, "GOOGLE", null],
   [/facebook|meta/i, "FB", null],
   [/instagram/i, "IG", null],
-  [/tiktok/i, "TIKTOK", null],
   [/twitter|\bx\b/i, "X", null],
   [/discord/i, "DISCORD", null],
   [/shopee/i, "SHOPEE", null],
@@ -338,7 +338,7 @@ const serviceLabels: ReadonlyArray<readonly [pattern: RegExp, label: string, emo
   [/apple/i, "APPLE", null],
 ];
 
-const fallbackServiceEmojiId = "5332618260703624145";
+const fallbackServiceEmojiId = "5334998226636390258";
 
 export function serviceLabel(senderId: string): string {
   const match = serviceLabels.find(([pattern]) => pattern.test(senderId));

@@ -79,7 +79,7 @@ export function formatLogMessage(entry: LogEntry, numbers: NumberButton[]): LogM
 
   const flagId = countryEmojiId(iso);
   const flagPart = flagId !== null ? `${customEmoji(flagId, "🏳")} ` : "";
-  const appEmoji = customEmoji(appEmojiId, "●");
+  const appEmoji = customEmoji(appEmojiId, "📱");
 
   const markdownV2Head = `${flagPart}${escapeMarkdownV2(iso)} ${appEmoji} • ${escapeMarkdownV2(maskedNumber)} \\#${escapeMarkdownV2(lang)}`;
   const legacyHead = `${iso} ${label} ${maskedNumber} #${lang}`;

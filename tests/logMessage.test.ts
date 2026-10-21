@@ -16,9 +16,9 @@ const numbers: NumberButton[] = [
 ];
 
 // Indonesia (ID) tidak ada di list emoji negara, jadi tidak ada flag emoji
-// WA emoji id: 5233354831984353090
-const waAppEmoji = "![●](tg://emoji?id=5233354831984353090)";
-const fallbackAppEmoji = "![●](tg://emoji?id=5332618260703624145)";
+// WA emoji id: 5334998226636390258
+const waAppEmoji = "![📱](tg://emoji?id=5334998226636390258)";
+const fallbackAppEmoji = "![📱](tg://emoji?id=5334998226636390258)";
 // US flag emoji id: 5294244076533600593
 const usFlagEmoji = "![🏳](tg://emoji?id=5294244076533600593)";
 
