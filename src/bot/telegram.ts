@@ -37,7 +37,11 @@ export function createDelivery(bot: Bot): LogDelivery {
         parse_mode: "MarkdownV2",
       });
     } catch (error) {
-      if (!(error instanceof Error) || !error.message.includes("can't parse entities")) {
+      if (
+        !(error instanceof Error) ||
+        (!error.message.includes("can't parse entities") &&
+          !error.message.includes("ENTITY_TEXT_INVALID"))
+      ) {
         throw error;
       }
       await bot.api.sendMessage(target.chatId, message.legacyMarkdown, {
