@@ -1,5 +1,28 @@
 # Gotchas
 
+## Fingerprint includes position to preserve duplicate SMS from same provider
+
+Two SMS that are byte-for-byte identical (same `receivedAt`, `number`, `senderId`, `sms`)
+produce the same content-based hash. If a provider sends the same OTP twice in one
+response, the second would be silently dropped by `ON CONFLICT DO NOTHING`. The fingerprint
+now includes the item's position in the oldest-first list, so each slot in the response
+window is unique even when content repeats. Changing this hashing will invalidate the
+existing deduplication ledger for those items (they would re-deliver once).
+
+## Custom emoji in MarkdownV2 — format and bot requirement
+
+Custom emoji syntax: `![<fallback_emoji>](tg://emoji?id=<document_id>)`.
+The fallback must be a valid Unicode emoji (shown in notifications and non-premium forwards).
+Bots can send custom emoji only if the bot owner has Telegram Premium **or** the bot has
+purchased an additional username on Fragment. Without that, Telegram silently strips the
+entity and shows the fallback. No error is returned.
+
+## Indonesia (ID) is absent from the country emoji list
+
+The emoji ID list provided covers ~200 countries but does not include Indonesia (`ID`).
+`countryEmojiId("ID")` returns `null`; the flag prefix is omitted and only the ISO code
+is shown. Do not add a made-up ID — only IDs from the verified list should be used.
+
 This file contains durable, non-obvious project-specific issues and constraints.
 
 Record things that future developers or AI agents are likely to get wrong without this knowledge.

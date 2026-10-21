@@ -62,16 +62,25 @@ they exist solely to become buttons on the OTP message. Keep the two roles separ
 
 ## OTP Message Format
 
-A single bold info line, then one blank line, and no decoration row: emoji separators
-render glued to the text in bold and look like damage, so whitespace does the spacing.
-No blockquote, no code fence, no decorative emoji, and **the code never appears in the
-visible text** — it lives only on the copy button.
+A single bold info line with custom Telegram emoji, then the copy button. Format:
 
 ```
-BO | WA 5917•••4567 #EN      (bold)
-
-[947-299-9]                 (red copy button, full width)
+<flag_emoji> <ISO> <app_emoji> • <masked_number> #<LANG>   (bold, MarkdownV2)
 ```
+
+Example output (Indonesia / WhatsApp — no flag emoji since ID not in list):
+```
+ID ![WA] • 6281•••••2345 #EN      (bold)
+
+[947-299-9]                        (red copy button, full width)
+```
+
+- Flag emoji: custom emoji from `countryEmojiIds` map (ISO → Telegram emoji ID).
+  When the ISO is not in the map, no flag prefix is shown (just the ISO code).
+- App emoji: custom emoji per service; WA = `5233354831984353090`.
+  Unknown services use fallback emoji `5332618260703624145`.
+- Legacy Markdown fallback: plain text `ISO LABEL masked #LANG`, no custom emoji.
+- The code never appears in the visible text — it lives only on the copy button.
 
 The leading field is the ISO 3166 alpha-2 code of the country. `labels.ts` maps every
 country name (English and Indonesian variants) and every numeric calling code, so the

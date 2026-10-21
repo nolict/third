@@ -8,9 +8,9 @@ import type { LogDelivery, OutgoingMessage } from "../bot/telegram.ts";
 
 const maxTrackedApiKeys = 50;
 
-function fingerprint(item: TrafficItem): string {
+function fingerprint(item: TrafficItem, position: number): string {
   return createHash("sha256")
-    .update([item.receivedAt, item.number, item.senderId, item.sms].join("\u0000"))
+    .update([item.receivedAt, item.number, item.senderId, item.sms, String(position)].join("\u0000"))
     .digest("hex");
 }
 
@@ -76,8 +76,8 @@ export class OtpPoller {
     // the channel still reads chronologically.
     const oldestFirst = [...items].reverse();
 
-    for (const item of oldestFirst) {
-      const id = fingerprint(item);
+    for (const [position, item] of oldestFirst.entries()) {
+      const id = fingerprint(item, position);
       const receivedAt = new Date(item.receivedAt);
       if (Number.isNaN(receivedAt.getTime())) {
         continue;

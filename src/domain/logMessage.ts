@@ -1,6 +1,6 @@
 import type { InlineKeyboardButton } from "grammy/types";
 
-import { countryFromNumber, countryFromRange, maskNumber, serviceLabel } from "./labels.ts";
+import { countryEmojiId, countryFromNumber, countryFromRange, maskNumber, serviceEmojiId, serviceLabel } from "./labels.ts";
 import { detectLanguage, extractOtp } from "./otp.ts";
 
 export interface LogEntry {
@@ -22,8 +22,6 @@ export interface LogMessage {
   replyMarkup: { inline_keyboard: InlineKeyboardButton[][] };
 }
 
-const missing = "??";
-
 function escapeMarkdownV2(text: string): string {
   return text.replace(/[_*[\]()~`>#+\-=|{}.!\\]/g, "\\$&");
 }
@@ -32,10 +30,24 @@ function escapeLegacyMarkdown(text: string): string {
   return text.replace(/[_*`[]/g, "\\$&");
 }
 
-function summary(entry: LogEntry): { country: string; info: string; code: string | null } {
-  const country = countryFromRange(entry.rangeName, "") || countryFromNumber(entry.number) || missing;
-  const info = `${serviceLabel(entry.senderId)} ${maskNumber(entry.number)} #${detectLanguage(entry.sms)}`;
-  return { country, info, code: extractOtp(entry.sms) };
+function customEmoji(emojiId: string, fallback: string): string {
+  return `![${fallback}](tg://emoji?id=${emojiId})`;
+}
+
+function summary(entry: LogEntry): {
+  iso: string;
+  appEmojiId: string;
+  label: string;
+  maskedNumber: string;
+  lang: string;
+  code: string | null;
+} {
+  const iso = countryFromRange(entry.rangeName, "") || countryFromNumber(entry.number) || "??";
+  const appEmojiId = serviceEmojiId(entry.senderId);
+  const label = serviceLabel(entry.senderId);
+  const maskedNumber = maskNumber(entry.number);
+  const lang = detectLanguage(entry.sms);
+  return { iso, appEmojiId, label, maskedNumber, lang, code: extractOtp(entry.sms) };
 }
 
 function spacedCode(code: string): string {
@@ -63,12 +75,18 @@ function keyboard(code: string | null, numbers: NumberButton[]): InlineKeyboardB
 }
 
 export function formatLogMessage(entry: LogEntry, numbers: NumberButton[]): LogMessage {
-  const { country, info, code } = summary(entry);
-  const head = `${country} | ${info}`;
+  const { iso, appEmojiId, label, maskedNumber, lang, code } = summary(entry);
+
+  const flagId = countryEmojiId(iso);
+  const flagPart = flagId !== null ? `${customEmoji(flagId, "🏳")} ` : "";
+  const appEmoji = customEmoji(appEmojiId, "●");
+
+  const markdownV2Head = `${flagPart}${escapeMarkdownV2(iso)} ${appEmoji} • ${escapeMarkdownV2(maskedNumber)} \\#${escapeMarkdownV2(lang)}`;
+  const legacyHead = `${iso} ${label} ${maskedNumber} #${lang}`;
 
   return {
-    markdownV2: `*${escapeMarkdownV2(head)}*\n`,
-    legacyMarkdown: `*${escapeLegacyMarkdown(head)}*\n`,
+    markdownV2: `*${markdownV2Head}*\n`,
+    legacyMarkdown: `*${escapeLegacyMarkdown(legacyHead)}*\n`,
     replyMarkup: { inline_keyboard: keyboard(code, numbers) },
   };
 }
