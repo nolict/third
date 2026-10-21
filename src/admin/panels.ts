@@ -428,8 +428,7 @@ export class AdminPanel {
 
   private async sendTest(ctx: Context, kind: ChannelKind): Promise<void> {
     const active = (await listChannels(kind)).filter((channel) => channel.isActive);
-    if (active.length === 0) {
-      await answerCallback(ctx, "Tidak ada channel aktif");
+    if (active.length === 0 || !ctx.chat) {
       return;
     }
     const message = testMessage(await this.deps.delivery.numberButtons());
@@ -438,22 +437,34 @@ export class AdminPanel {
       active.map((target) => this.deps.delivery.send(target, message)),
     );
     const failed = results.filter((result) => result.status === "rejected").length;
-    await answerCallback(
-      ctx,
+    const failedDetails = results
+      .map((result, i) =>
+        result.status === "rejected"
+          ? `• ${active[i]?.title ?? active[i]?.chatId}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`
+          : null,
+      )
+      .filter((line): line is string => line !== null);
+
+    const statusLine =
       failed === 0
-        ? `Test terkirim ke ${active.length} channel`
-        : `Gagal di ${failed} dari ${active.length} channel`,
-    );
+        ? `✅ Test terkirim ke ${active.length} channel`
+        : `❌ Gagal di ${failed} dari ${active.length} channel`;
+
+    const text = failedDetails.length > 0 ? `${statusLine}\n\n${failedDetails.join("\n")}` : statusLine;
+    await ctx.api.sendMessage(ctx.chat.id, text);
   }
 
   private async previewButtons(ctx: Context): Promise<void> {
+    if (!ctx.chat) {
+      return;
+    }
     const numbers = await this.deps.delivery.numberButtons();
     if (numbers.length === 0) {
-      await answerCallback(ctx, "Belum ada channel, tombol tidak tampil");
+      await ctx.api.sendMessage(ctx.chat.id, "Belum ada channel, tombol tidak tampil");
       return;
     }
     const lines = numbers.map((number, index) => `${index + 1}. ${number.label} → ${number.url}`);
-    await answerCallback(ctx, `Tombol OTP: ${lines.join(" / ")}`);
+    await ctx.api.sendMessage(ctx.chat.id, `Tombol OTP:\n${lines.join("\n")}`);
   }
 
   private async onText(ctx: Context, text: string): Promise<void> {
