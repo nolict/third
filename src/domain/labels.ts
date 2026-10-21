@@ -525,14 +525,25 @@ export function countryEmojiId(iso: string): string | null {
   return countryEmojiIds[iso] ?? null;
 }
 
-export function maskNumber(number: string): string {
+export interface MaskedNumber {
+  prefix: string;
+  hiddenCount: number;
+  tail: string;
+}
+
+export function maskNumberParts(number: string): MaskedNumber {
   const digits = number.replace(/\D/g, "");
   if (digits.length === 0) {
-    return "••••";
+    return { prefix: "", hiddenCount: 4, tail: "" };
   }
   const prefix = digits.slice(0, 4);
   const visibleTailLength = Math.min(4, Math.max(0, digits.length - prefix.length));
   const tail = digits.slice(digits.length - visibleTailLength);
-  const hiddenLength = Math.max(3, digits.length - prefix.length - visibleTailLength);
-  return `${prefix}${"•".repeat(hiddenLength)}${tail}`;
+  const hiddenCount = Math.max(3, digits.length - prefix.length - visibleTailLength);
+  return { prefix, hiddenCount, tail };
+}
+
+export function maskNumber(number: string): string {
+  const { prefix, hiddenCount, tail } = maskNumberParts(number);
+  return `${prefix}${"•".repeat(hiddenCount)}${tail}`;
 }

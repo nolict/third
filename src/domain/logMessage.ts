@@ -1,6 +1,6 @@
 import type { InlineKeyboardButton } from "grammy/types";
 
-import { countryEmojiId, countryFromNumber, countryFromRange, maskNumber, serviceEmojiId, serviceLabel } from "./labels.ts";
+import { countryEmojiId, countryFromNumber, countryFromRange, maskNumber, maskNumberParts, serviceEmojiId, serviceLabel, type MaskedNumber } from "./labels.ts";
 import { detectLanguage, extractOtp } from "./otp.ts";
 
 export interface LogEntry {
@@ -30,8 +30,15 @@ function escapeLegacyMarkdown(text: string): string {
   return text.replace(/[_*`[]/g, "\\$&");
 }
 
+const sensorEmojiId = "5438496463044752972";
+
 function customEmoji(emojiId: string, fallback: string): string {
   return `![${fallback}](tg://emoji?id=${emojiId})`;
+}
+
+function renderMaskedNumber(parts: MaskedNumber): string {
+  const sensor = customEmoji(sensorEmojiId, "•");
+  return `${escapeMarkdownV2(parts.prefix)}${sensor.repeat(parts.hiddenCount)}${escapeMarkdownV2(parts.tail)}`;
 }
 
 function summary(entry: LogEntry): {
@@ -39,15 +46,17 @@ function summary(entry: LogEntry): {
   appEmojiId: string;
   label: string;
   maskedNumber: string;
+  numberParts: MaskedNumber;
   lang: string;
   code: string | null;
 } {
   const iso = countryFromRange(entry.rangeName, "") || countryFromNumber(entry.number) || "??";
   const appEmojiId = serviceEmojiId(entry.senderId);
   const label = serviceLabel(entry.senderId);
+  const numberParts = maskNumberParts(entry.number);
   const maskedNumber = maskNumber(entry.number);
   const lang = detectLanguage(entry.sms);
-  return { iso, appEmojiId, label, maskedNumber, lang, code: extractOtp(entry.sms) };
+  return { iso, appEmojiId, label, maskedNumber, numberParts, lang, code: extractOtp(entry.sms) };
 }
 
 function spacedCode(code: string): string {
@@ -75,13 +84,13 @@ function keyboard(code: string | null, numbers: NumberButton[]): InlineKeyboardB
 }
 
 export function formatLogMessage(entry: LogEntry, numbers: NumberButton[]): LogMessage {
-  const { iso, appEmojiId, label, maskedNumber, lang, code } = summary(entry);
+  const { iso, appEmojiId, label, maskedNumber, numberParts, lang, code } = summary(entry);
 
   const flagId = countryEmojiId(iso);
   const flagPart = flagId !== null ? `${customEmoji(flagId, "🏳")} ` : "";
   const appEmoji = customEmoji(appEmojiId, "📱");
 
-  const markdownV2Head = `${flagPart}${escapeMarkdownV2(iso)} ${appEmoji} • ${escapeMarkdownV2(maskedNumber)} \\#${escapeMarkdownV2(lang)}`;
+  const markdownV2Head = `${flagPart}${escapeMarkdownV2(iso)} ${appEmoji} • ${renderMaskedNumber(numberParts)} \\#${escapeMarkdownV2(lang)}`;
   const legacyHead = `${iso} ${label} ${maskedNumber} #${lang}`;
 
   return {
