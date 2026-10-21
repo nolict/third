@@ -6,11 +6,11 @@ import { formatLogMessage } from "../domain/logMessage.ts";
 import { fetchRecentTraffic, type TrafficItem } from "./thirdwave.ts";
 import type { LogDelivery, OutgoingMessage } from "../bot/telegram.ts";
 
-const maxTrackedApiKeys = 50;
+const maxTrackedApiKeys = 100;
 
-function fingerprint(item: TrafficItem, position: number): string {
+function fingerprint(item: TrafficItem): string {
   return createHash("sha256")
-    .update([item.receivedAt, item.number, item.senderId, item.sms, String(position)].join("\u0000"))
+    .update([item.receivedAt, item.number, item.senderId, item.sms].join("\u0000"))
     .digest("hex");
 }
 
@@ -75,9 +75,13 @@ export class OtpPoller {
     // instantaneous, so a message can appear late in the list). Send oldest-first so
     // the channel still reads chronologically.
     const oldestFirst = [...items].reverse();
+    const deliveredThisBatch = new Set<string>();
 
-    for (const [position, item] of oldestFirst.entries()) {
-      const id = fingerprint(item, position);
+    for (const item of oldestFirst) {
+      const id = fingerprint(item);
+      if (deliveredThisBatch.has(id)) {
+        continue;
+      }
       const receivedAt = new Date(item.receivedAt);
       if (Number.isNaN(receivedAt.getTime())) {
         continue;
@@ -90,6 +94,7 @@ export class OtpPoller {
         item.rangeName,
         receivedAt,
       );
+      deliveredThisBatch.add(id);
       if (isNew) {
         const rendered = formatLogMessage(
           {
